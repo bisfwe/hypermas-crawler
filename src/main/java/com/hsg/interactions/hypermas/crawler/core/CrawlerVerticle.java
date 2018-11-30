@@ -18,8 +18,10 @@ import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -30,8 +32,6 @@ public class CrawlerVerticle extends AbstractVerticle {
     private static Handler<Long> action;
     private HttpClient httpClient;
     private RDF4J rdfImpl;
-    private Set<Graph> graphSet = new HashSet<>();
-
 
     @Override
     public void start(Future<Void> fut) {
@@ -39,8 +39,10 @@ public class CrawlerVerticle extends AbstractVerticle {
         httpClient = vertx.createHttpClient();
         store = new SubscriptionStore();
         action = id -> {
-            this.crawl();
-            System.out.println("Wait for next crawl...");
+            crawl();
+            System.out.println("Writing to ttl data file...");
+            writeTtl();
+            System.out.println("Waiting for next crawl...");
             vertx.setTimer(TimeUnit.SECONDS.toMillis(5), action);
         };
 
@@ -48,9 +50,8 @@ public class CrawlerVerticle extends AbstractVerticle {
     }
 
     private void crawl() {
-        graphSet.clear();
-        Map<String, Long> subscriptions = store.getAllSubscriptions();
-        Set<String> newUrls = new HashSet<>();
+        Map<String, String> subscriptions = store.getAllSubscriptions();
+
         for (String url :subscriptions.keySet()) {
             httpClient.getAbs(url, new Handler<HttpClientResponse>() {
 
@@ -58,8 +59,15 @@ public class CrawlerVerticle extends AbstractVerticle {
                 public void handle(HttpClientResponse httpClientResponse) {
                     httpClientResponse.bodyHandler(buffer -> {
                         if (buffer.toString().equals("Not Found")) {
+                            System.out.println("Removing subscription: " + url);
+                            store.removeSubscription(url);
                             return;
                         }
+                        // store turtle data
+                        if (!buffer.toString().equals(subscriptions.get(url))) {
+                            store.addSubscriptionData(url, buffer.toString());
+                        }
+                        // look for new links
                         ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
                         RDFFormat format = RDFFormat.TURTLE;
                         RDFParser rdfParser = Rio.createParser(format);
@@ -69,7 +77,6 @@ public class CrawlerVerticle extends AbstractVerticle {
                             // parse string to graph
                             rdfParser.parse(in, "");
                             Graph graph = rdfImpl.asGraph(model);
-                            graphSet.add(graph);
 
                             Set<String> foundLinks = findLinks(graph);
                             for (String link : foundLinks) {
@@ -87,7 +94,6 @@ public class CrawlerVerticle extends AbstractVerticle {
                             }
                         }
                     });
-                    System.out.println("Crawled url: " + url);
                 }
             }).putHeader("Content-Type", "text/turtle").end();
         }
@@ -112,5 +118,19 @@ public class CrawlerVerticle extends AbstractVerticle {
 
     private Iterable<Triple> findTriplesByPredicate(Graph graph, IRI iri) {
         return graph.iterate(null, iri, null);
+    }
+
+    private void writeTtl() {
+        Map<String, String> dataMap = store.getAllSubscriptions();
+        Path path = Paths.get("crawlerData.ttl");
+        try (BufferedWriter writer = Files.newBufferedWriter(path))
+        {
+            for (String data : dataMap.values()) {
+                writer.write(data);
+            }
+            writer.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
