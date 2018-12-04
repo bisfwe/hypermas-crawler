@@ -39,7 +39,6 @@ public class SubscriptionHandler {
             } else {
                 routingContext.fail(HttpStatus.SC_INTERNAL_SERVER_ERROR);
             }
-
         };
     }
 }

@@ -2,14 +2,17 @@ package com.hsg.interactions.hypermas.crawler.core;
 
 import com.hsg.interactions.hypermas.crawler.store.SubscriptionStore;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import org.apache.commons.rdf.api.Graph;
 import org.apache.commons.rdf.api.IRI;
 import org.apache.commons.rdf.api.Triple;
 import org.apache.commons.rdf.rdf4j.RDF4J;
+import org.apache.http.HttpStatus;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -32,6 +35,7 @@ public class CrawlerVerticle extends AbstractVerticle {
     private static Handler<Long> action;
     private HttpClient httpClient;
     private RDF4J rdfImpl;
+    private String dataFileName = "crawlerData.ttl";
 
     @Override
     public void start(Future<Void> fut) {
@@ -40,9 +44,9 @@ public class CrawlerVerticle extends AbstractVerticle {
         store = new SubscriptionStore();
         action = id -> {
             crawl();
-            System.out.println("Writing to ttl data file...");
             writeTtl();
             System.out.println("Waiting for next crawl...");
+            System.out.println("");
             vertx.setTimer(TimeUnit.SECONDS.toMillis(5), action);
         };
 
@@ -53,6 +57,7 @@ public class CrawlerVerticle extends AbstractVerticle {
         Map<String, String> subscriptions = store.getAllSubscriptions();
 
         for (String url :subscriptions.keySet()) {
+            System.out.println("Crawling " + url);
             httpClient.getAbs(url, new Handler<HttpClientResponse>() {
 
                 @Override
@@ -122,15 +127,30 @@ public class CrawlerVerticle extends AbstractVerticle {
 
     private void writeTtl() {
         Map<String, String> dataMap = store.getAllSubscriptions();
-        Path path = Paths.get("crawlerData.ttl");
-        try (BufferedWriter writer = Files.newBufferedWriter(path))
-        {
-            for (String data : dataMap.values()) {
-                writer.write(data);
+        if ( dataMap.size() > 0 ) {
+            System.out.println("Writing crawler data to " + dataFileName);
+            Path path = Paths.get(dataFileName);
+            try (BufferedWriter writer = Files.newBufferedWriter(path))
+            {
+                for (String data : dataMap.values()) {
+                    writer.write(data);
+                }
+                writer.flush();
+                writer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            writer.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
+            vertx.eventBus().send(EventBusRegistry.SEARCH_ENGINE_ADDRESS, dataFileName, handleStoreReply(HttpStatus.SC_OK));
         }
+    }
+
+    Handler<AsyncResult<Message<String>>> handleStoreReply(int statusCode) {
+        return reply -> {
+            if (reply.succeeded()) {
+                System.out.println("[Corese] Data reloaded");
+            } else {
+                System.out.println("[Corese] Data reload failed");
+            }
+        };
     }
 }
