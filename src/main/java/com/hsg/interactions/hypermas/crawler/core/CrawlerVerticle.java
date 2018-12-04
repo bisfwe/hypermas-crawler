@@ -140,7 +140,7 @@ public class CrawlerVerticle extends AbstractVerticle {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            vertx.eventBus().send(EventBusRegistry.SEARCH_ENGINE_ADDRESS, dataFileName, handleStoreReply(HttpStatus.SC_OK));
+            vertx.eventBus().send(EventBusRegistry.SEARCH_ENGINE_DATA_ADDRESS, dataFileName, handleStoreReply(HttpStatus.SC_OK));
         }
     }
 

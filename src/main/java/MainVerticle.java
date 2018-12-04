@@ -1,6 +1,6 @@
 import com.hsg.interactions.hypermas.crawler.core.CrawlerVerticle;
 import com.hsg.interactions.hypermas.crawler.http.HttpServerVerticle;
-import com.hsg.interactions.hypermas.crawler.search.SearchVerticle;
+import com.hsg.interactions.hypermas.crawler.search.SearchHandler;
 import com.hsg.interactions.hypermas.crawler.store.SubscriptionStoreVerticle;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
@@ -15,6 +15,5 @@ public class MainVerticle extends AbstractVerticle {
 
         vertx.deployVerticle(new CrawlerVerticle(), new DeploymentOptions());
 
-        vertx.deployVerticle(new SearchVerticle(), new DeploymentOptions());
     }
 }
