@@ -6,6 +6,7 @@ import fr.inria.corese.core.load.Load;
 import fr.inria.corese.core.load.LoadException;
 
 import fr.inria.corese.core.print.ResultFormat;
+import fr.inria.corese.core.print.TripleFormat;
 import fr.inria.corese.core.query.QueryProcess;
 import fr.inria.corese.kgram.core.Mappings;
 import fr.inria.corese.sparql.exceptions.EngineException;
@@ -34,8 +35,16 @@ public class SearchEngine {
         try {
             String query = routingContext.getBodyAsString();
             Mappings map = exec.query(query);
-            ResultFormat f = ResultFormat.create(map);
-            routingContext.response().end(f.toString());
+            if (!query.contains("construct")) {
+                // we can only return plain sparql results, no nice turtle
+                ResultFormat f = ResultFormat.create(map);
+                routingContext.response().putHeader("Content-Type", "application/sparql-results+xml").end(f.toString());
+            } else {
+                Graph g = exec.getGraph(map);
+                TripleFormat tf = TripleFormat.create(g);
+                routingContext.response().putHeader("Content-Type", "text/turtle").end(tf.toString());
+            }
+
         } catch (EngineException e) {
             e.printStackTrace();
             routingContext.response().setStatusCode(400).end(e.getMessage());
