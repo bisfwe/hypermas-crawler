@@ -5,32 +5,33 @@ import io.vertx.core.shareddata.LocalMap;
 
 import java.util.Map;
 
-public class SubscriptionStore {
+public class RegistrationStore {
 
     private Vertx vertx;
     private LocalMap<String, String> subscriptions;
 
 
-    public SubscriptionStore() {
+    public RegistrationStore() {
         vertx = Vertx.currentContext().owner();
         subscriptions = vertx.sharedData().getLocalMap("subscriptions");
     }
 
-    public void addSubscription(String crawlUrl) {
+    public void addRegistration(String crawlUrl) {
         subscriptions.put(crawlUrl, "");
     }
 
-    public void removeSubscription(String crawlUrl) {
+    public void removeRegistration(String crawlUrl) {
         subscriptions.remove(crawlUrl);
     }
 
-    public void addSubscriptionData(String url, String representation) {
+    public void addRegistrationData(String url, String representation) {
         subscriptions.replace(url, representation);
     }
 
-    public Map<String, String> getAllSubscriptions() {
+    public Map<String, String> getAllRegistrations() {
         return subscriptions;
     }
 
 
 }
+

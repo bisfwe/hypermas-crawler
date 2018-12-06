@@ -10,7 +10,6 @@ import fr.inria.corese.core.print.TripleFormat;
 import fr.inria.corese.core.query.QueryProcess;
 import fr.inria.corese.kgram.core.Mappings;
 import fr.inria.corese.sparql.exceptions.EngineException;
-import fr.inria.corese.sparql.exceptions.QuerySyntaxException;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
@@ -40,8 +39,9 @@ public class SearchHandler {
             String query = routingContext.getBodyAsString();
             Mappings map = exec.query(query);
             ResultFormat f = ResultFormat.create(map);
-            routingContext.response().end(f.toString());
-            // TODO: repsponse
+            routingContext.response().end(f.toString()); Graph g = exec.getGraph(map);
+            TripleFormat tf = TripleFormat.create(g);
+            System.out.println(tf);
         } catch (EngineException e) {
             e.printStackTrace();
             routingContext.response().setStatusCode(400).end(e.getMessage());

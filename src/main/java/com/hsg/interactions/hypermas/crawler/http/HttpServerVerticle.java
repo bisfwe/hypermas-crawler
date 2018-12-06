@@ -34,7 +34,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .end("Crawler Yggdrasil -> Corese");
         });
 
-        SubscriptionHandler subHandler = new SubscriptionHandler();
+        RegistrationHandler subHandler = new RegistrationHandler();
         SearchHandler searchHandler = new SearchHandler();
 
         router.post("/crawler/subscriptions").handler(subHandler::handleAddSubscription);

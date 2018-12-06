@@ -10,11 +10,11 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.http.HttpStatus;
 
 
-public class SubscriptionHandler {
+public class RegistrationHandler {
 
     private Vertx vertx;
 
-    public SubscriptionHandler() {
+    public RegistrationHandler() {
         vertx = Vertx.currentContext().owner();
     }
 
@@ -22,7 +22,7 @@ public class SubscriptionHandler {
         System.out.println("Add subscription");
         String crawlUrl = routingContext.getBodyAsString();
 
-        vertx.eventBus().send(EventBusRegistry.SUBSCRIPTION_STORE_ADDRESS, crawlUrl, handleStoreReply(routingContext, HttpStatus.SC_OK));
+        vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, crawlUrl, handleStoreReply(routingContext, HttpStatus.SC_OK));
     }
 
     public void handleRemoveSubscription(RoutingContext routingContext) {

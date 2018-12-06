@@ -1,6 +1,6 @@
 package com.hsg.interactions.hypermas.crawler.core;
 
-import com.hsg.interactions.hypermas.crawler.store.SubscriptionStore;
+import com.hsg.interactions.hypermas.crawler.store.RegistrationStore;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class CrawlerVerticle extends AbstractVerticle {
-    private SubscriptionStore store;
+    private RegistrationStore store;
     private static Handler<Long> action;
     private HttpClient httpClient;
     private RDF4J rdfImpl;
@@ -41,7 +41,7 @@ public class CrawlerVerticle extends AbstractVerticle {
     public void start(Future<Void> fut) {
         rdfImpl = new RDF4J();
         httpClient = vertx.createHttpClient();
-        store = new SubscriptionStore();
+        store = new RegistrationStore();
         action = id -> {
             crawl();
             writeTtl();
@@ -54,9 +54,9 @@ public class CrawlerVerticle extends AbstractVerticle {
     }
 
     private void crawl() {
-        Map<String, String> subscriptions = store.getAllSubscriptions();
+        Map<String, String> registrations = store.getAllRegistrations();
 
-        for (String url :subscriptions.keySet()) {
+        for (String url :registrations.keySet()) {
             System.out.println("Crawling " + url);
             httpClient.getAbs(url, new Handler<HttpClientResponse>() {
 
@@ -64,13 +64,15 @@ public class CrawlerVerticle extends AbstractVerticle {
                 public void handle(HttpClientResponse httpClientResponse) {
                     httpClientResponse.bodyHandler(buffer -> {
                         if (buffer.toString().equals("Not Found")) {
-                            System.out.println("Removing subscription: " + url);
-                            store.removeSubscription(url);
+                            System.out.println("Removing registration: " + url);
+                            // TODO move to verticle
+                            store.removeRegistration(url);
                             return;
                         }
                         // store turtle data
-                        if (!buffer.toString().equals(subscriptions.get(url))) {
-                            store.addSubscriptionData(url, buffer.toString());
+                        if (!buffer.toString().equals(registrations.get(url))) {
+                            // TODO move to verticle
+                            store.addRegistrationData(url, buffer.toString());
                         }
                         // look for new links
                         ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
@@ -85,7 +87,8 @@ public class CrawlerVerticle extends AbstractVerticle {
 
                             Set<String> foundLinks = findLinks(graph);
                             for (String link : foundLinks) {
-                                store.addSubscription(link);
+                                // TODO move to verticle
+                                store.addRegistration(link);
                             }
                         } catch (RDFParseException e) {
                             throw new IllegalArgumentException("RDF parse error: " + e.getMessage());
@@ -126,7 +129,7 @@ public class CrawlerVerticle extends AbstractVerticle {
     }
 
     private void writeTtl() {
-        Map<String, String> dataMap = store.getAllSubscriptions();
+        Map<String, String> dataMap = store.getAllRegistrations();
         if ( dataMap.size() > 0 ) {
             System.out.println("Writing crawler data to " + dataFileName);
             Path path = Paths.get(dataFileName);
