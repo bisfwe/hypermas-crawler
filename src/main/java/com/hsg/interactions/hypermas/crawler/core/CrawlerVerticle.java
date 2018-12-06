@@ -147,11 +147,11 @@ public class CrawlerVerticle extends AbstractVerticle {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            vertx.eventBus().send(EventBusRegistry.SEARCH_ENGINE_DATA_ADDRESS, dataFileName, handleStoreReply(HttpStatus.SC_OK));
+            vertx.eventBus().send(EventBusRegistry.SEARCH_ENGINE_DATA_ADDRESS, dataFileName, handleStoreReply());
         }
     }
 
-    Handler<AsyncResult<Message<String>>> handleStoreReply(int statusCode) {
+    Handler<AsyncResult<Message<String>>> handleStoreReply() {
         return reply -> {
             if (reply.succeeded()) {
                 System.out.println("[Corese] Data reloaded");

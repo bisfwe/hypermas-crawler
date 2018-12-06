@@ -1,6 +1,6 @@
 package com.hsg.interactions.hypermas.crawler.http;
 
-import com.hsg.interactions.hypermas.crawler.search.SearchHandler;
+import com.hsg.interactions.hypermas.crawler.search.SearchEngine;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.ext.web.Router;
@@ -35,10 +35,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         });
 
         RegistrationHandler subHandler = new RegistrationHandler();
-        SearchHandler searchHandler = new SearchHandler();
+        SearchEngine searchHandler = new SearchEngine();
 
         router.post("/crawler/subscriptions").handler(subHandler::handleAddSubscription);
-        router.delete("/crawler/subscriptions").handler(subHandler::handleRemoveSubscription);
         // TODO post with body or get with path parameters?
         // atm body seems to be nicer, since sparql query encoded in path can be cumbersome
         router.post("/searchEngine").handler(searchHandler::handleSearchQuery);

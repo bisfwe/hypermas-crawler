@@ -29,11 +29,6 @@ public class RegistrationHandler {
         vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson(), handleStoreReply(routingContext, HttpStatus.SC_OK));
     }
 
-    public void handleRemoveSubscription(RoutingContext routingContext) {
-        System.out.println("remove subscription");
-
-    }
-
     public Handler<AsyncResult<Message<String>>> handleStoreReply(RoutingContext routingContext, int succededStatusCode) {
         return reply -> {
             if (reply.succeeded()) {
