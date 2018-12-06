@@ -15,9 +15,6 @@ import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.ext.web.RoutingContext;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 public class SearchHandler {
     private Vertx vertx;
     private Graph coreseGraph;
@@ -39,13 +36,13 @@ public class SearchHandler {
             String query = routingContext.getBodyAsString();
             Mappings map = exec.query(query);
             ResultFormat f = ResultFormat.create(map);
-            routingContext.response().end(f.toString()); Graph g = exec.getGraph(map);
+            routingContext.response().end(f.toString());
+            Graph g = (Graph) map.getGraph();
             TripleFormat tf = TripleFormat.create(g);
             System.out.println(tf);
         } catch (EngineException e) {
             e.printStackTrace();
             routingContext.response().setStatusCode(400).end(e.getMessage());
-            // TODO: fail response
         }
     }
 
@@ -54,7 +51,6 @@ public class SearchHandler {
         String filePath = message.body();
         try {
             coreseGraph.empty();
-            Path path = Paths.get("crawlerData.ttl");
             coreseLoad.parse(filePath);
             message.reply("ok");
         } catch (LoadException e) {

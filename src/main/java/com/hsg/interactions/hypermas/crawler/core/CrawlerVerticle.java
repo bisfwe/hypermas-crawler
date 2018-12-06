@@ -46,7 +46,6 @@ public class CrawlerVerticle extends AbstractVerticle {
             crawl();
             writeTtl();
             System.out.println("Waiting for next crawl...");
-            System.out.println("");
             vertx.setTimer(TimeUnit.SECONDS.toMillis(5), action);
         };
 
@@ -65,15 +64,18 @@ public class CrawlerVerticle extends AbstractVerticle {
                     httpClientResponse.bodyHandler(buffer -> {
                         if (buffer.toString().equals("Not Found")) {
                             System.out.println("Removing registration: " + url);
-                            // TODO move to verticle
-                            store.removeRegistration(url);
+                            EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.REMOVE_REGISTRATION);
+                            message.setPayload(url);
+                            vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
                             return;
                         }
+
                         // store turtle data
-                        if (!buffer.toString().equals(registrations.get(url))) {
-                            // TODO move to verticle
-                            store.addRegistrationData(url, buffer.toString());
-                        }
+                        EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION_DATA);
+                        message.setHeader(EventBusMessage.Headers.SUBSCRIPTION_URL, url);
+                        message.setPayload(buffer.toString());
+                        vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
+
                         // look for new links
                         ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
                         RDFFormat format = RDFFormat.TURTLE;
@@ -87,8 +89,10 @@ public class CrawlerVerticle extends AbstractVerticle {
 
                             Set<String> foundLinks = findLinks(graph);
                             for (String link : foundLinks) {
-                                // TODO move to verticle
-                                store.addRegistration(link);
+                                message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION);
+                                message.setPayload(link);
+
+                                vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
                             }
                         } catch (RDFParseException e) {
                             throw new IllegalArgumentException("RDF parse error: " + e.getMessage());

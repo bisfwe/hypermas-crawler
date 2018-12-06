@@ -1,5 +1,6 @@
 package com.hsg.interactions.hypermas.crawler.http;
 
+import com.hsg.interactions.hypermas.crawler.core.EventBusMessage;
 import com.hsg.interactions.hypermas.crawler.core.EventBusRegistry;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
@@ -22,7 +23,10 @@ public class RegistrationHandler {
         System.out.println("Add subscription");
         String crawlUrl = routingContext.getBodyAsString();
 
-        vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, crawlUrl, handleStoreReply(routingContext, HttpStatus.SC_OK));
+        EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION);
+        message.setPayload(crawlUrl);
+
+        vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson(), handleStoreReply(routingContext, HttpStatus.SC_OK));
     }
 
     public void handleRemoveSubscription(RoutingContext routingContext) {
