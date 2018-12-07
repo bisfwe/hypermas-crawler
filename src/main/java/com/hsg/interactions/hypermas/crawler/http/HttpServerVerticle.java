@@ -37,7 +37,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         RegistrationHandler subHandler = new RegistrationHandler();
         SearchEngine searchHandler = new SearchEngine();
 
-        router.post("/crawler/subscriptions").handler(subHandler::handleAddSubscription);
+        router.post("/crawler/registrations").handler(subHandler::handleAddSubscription);
         // TODO post with body or get with path parameters?
         // atm body seems to be nicer, since sparql query encoded in path can be cumbersome
         router.post("/searchEngine").handler(searchHandler::handleSearchQuery);
