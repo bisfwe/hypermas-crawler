@@ -2,7 +2,6 @@ package com.hsg.interactions.hypermas.crawler.http;
 
 import com.hsg.interactions.hypermas.crawler.core.EventBusMessage;
 import com.hsg.interactions.hypermas.crawler.core.EventBusRegistry;
-import io.netty.util.concurrent.SucceededFuture;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;

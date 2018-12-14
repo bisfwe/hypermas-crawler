@@ -17,7 +17,6 @@ public class LinkStore {
     }
 
     public void addLink(String link) {
-        // TODO check multiple inserts
         crawlerLinks.put(link, "");
     }
 
@@ -26,7 +25,6 @@ public class LinkStore {
     }
 
     public void addLink(String link, String prefix) {
-        // TODO check multiple inserts
         crawlerLinks.put(link, prefix);
     }
 
