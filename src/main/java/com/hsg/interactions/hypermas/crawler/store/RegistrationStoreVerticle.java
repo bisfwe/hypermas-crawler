@@ -57,7 +57,7 @@ public class RegistrationStoreVerticle extends AbstractVerticle {
     private void handleAddRegistrationData(EventBusMessage request, Message<String> message) {
         Optional<String> subscriptionUrl = request.getHeader(EventBusMessage.Headers.SUBSCRIPTION_URL);
         Optional<String> data = request.getPayload();
-        if (subscriptionUrl.isPresent() && data.isPresent() && !store.getAllRegistrations().get(subscriptionUrl.get()).equals(data.get())) {
+        if (subscriptionUrl.isPresent() && data.isPresent() && (!store.contains(subscriptionUrl.get()) || !store.getAllRegistrations().get(subscriptionUrl.get()).equals(data.get())) ) {
             store.addRegistrationData(subscriptionUrl.get(), data.get());
             message.reply("ok");
         }

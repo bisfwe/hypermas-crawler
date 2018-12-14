@@ -57,58 +57,60 @@ public class CrawlerVerticle extends AbstractVerticle {
 
         for (String url :registrations.keySet()) {
             System.out.println("Crawling " + url);
-            httpClient.getAbs(url, new Handler<HttpClientResponse>() {
+            visiUrl(url);
 
-                @Override
-                public void handle(HttpClientResponse httpClientResponse) {
-                    httpClientResponse.bodyHandler(buffer -> {
-                        if (buffer.toString().equals("Not Found")) {
-                            System.out.println("Removing registration: " + url);
-                            EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.REMOVE_REGISTRATION);
-                            message.setPayload(url);
-                            vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
-                            return;
-                        }
+        }
+    }
 
-                        // registrationStore turtle data
-                        EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION_DATA);
-                        message.setHeader(EventBusMessage.Headers.SUBSCRIPTION_URL, url);
-                        message.setPayload(buffer.toString());
+    private void visiUrl(String url) {
+        httpClient.getAbs(url, new Handler<HttpClientResponse>() {
+
+            @Override
+            public void handle(HttpClientResponse httpClientResponse) {
+                httpClientResponse.bodyHandler(buffer -> {
+                    if (buffer.toString().equals("Not Found")) {
+                        System.out.println("Removing registration: " + url);
+                        EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.REMOVE_REGISTRATION);
+                        message.setPayload(url);
                         vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
+                        return;
+                    }
 
-                        // look for new links
-                        ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
-                        RDFFormat format = RDFFormat.TURTLE;
-                        RDFParser rdfParser = Rio.createParser(format);
-                        Model model = new LinkedHashModel();
-                        rdfParser.setRDFHandler(new StatementCollector(model));
+                    // registrationStore turtle data
+                    EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION_DATA);
+                    message.setHeader(EventBusMessage.Headers.SUBSCRIPTION_URL, url);
+                    message.setPayload(buffer.toString());
+                    vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
+
+                    // look for new links
+                    ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
+                    RDFFormat format = RDFFormat.TURTLE;
+                    RDFParser rdfParser = Rio.createParser(format);
+                    Model model = new LinkedHashModel();
+                    rdfParser.setRDFHandler(new StatementCollector(model));
+                    try {
+                        // parse string to graph
+                        rdfParser.parse(in, "");
+                        Graph graph = rdfImpl.asGraph(model);
+
+                        Set<String> foundLinks = findLinks(graph);
+                        for (String link : foundLinks) {
+                            visiUrl(link);
+                        }
+                    } catch (RDFParseException e) {
+                        throw new IllegalArgumentException("RDF parse error: " + e.getMessage());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } finally {
                         try {
-                            // parse string to graph
-                            rdfParser.parse(in, "");
-                            Graph graph = rdfImpl.asGraph(model);
-
-                            Set<String> foundLinks = findLinks(graph);
-                            for (String link : foundLinks) {
-                                message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION);
-                                message.setPayload(link);
-
-                                vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
-                            }
-                        } catch (RDFParseException e) {
-                            throw new IllegalArgumentException("RDF parse error: " + e.getMessage());
+                            in.close();
                         } catch (IOException e) {
                             e.printStackTrace();
-                        } finally {
-                            try {
-                                in.close();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
                         }
-                    });
-                }
-            }).putHeader("Content-Type", "text/turtle").end();
-        }
+                    }
+                });
+            }
+        }).putHeader("Content-Type", "text/turtle").end();
     }
 
     private Set<String> findLinks(Graph graph) {

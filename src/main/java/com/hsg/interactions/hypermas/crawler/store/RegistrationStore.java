@@ -17,9 +17,7 @@ public class RegistrationStore {
     }
 
     public void addRegistration(String crawlUrl) {
-        if(!subscriptions.containsKey(crawlUrl)) {
-        subscriptions.put(crawlUrl, "");
-        }
+        addRegistrationData(crawlUrl, "");
     }
 
     public void removeRegistration(String crawlUrl) {
@@ -27,13 +25,19 @@ public class RegistrationStore {
     }
 
     public void addRegistrationData(String url, String representation) {
-        subscriptions.replace(url, representation);
+        if (subscriptions.containsKey(url) && !representation.equals("")) {
+           subscriptions.replace(url, representation);
+        } else {
+            subscriptions.put(url, representation);
+        }
     }
 
     public Map<String, String> getAllRegistrations() {
         return subscriptions;
     }
 
-
+    public boolean contains(String url) {
+        return subscriptions.containsKey(url);
+    }
 }
 
