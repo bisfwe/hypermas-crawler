@@ -17,7 +17,9 @@ public class RegistrationStore {
     }
 
     public void addRegistration(String crawlUrl) {
+        if(!subscriptions.containsKey(crawlUrl)) {
         subscriptions.put(crawlUrl, "");
+        }
     }
 
     public void removeRegistration(String crawlUrl) {

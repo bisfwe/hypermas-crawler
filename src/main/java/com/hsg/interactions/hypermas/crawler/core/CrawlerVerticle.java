@@ -1,5 +1,6 @@
 package com.hsg.interactions.hypermas.crawler.core;
 
+import com.hsg.interactions.hypermas.crawler.store.LinkStore;
 import com.hsg.interactions.hypermas.crawler.store.RegistrationStore;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
@@ -12,7 +13,6 @@ import org.apache.commons.rdf.api.Graph;
 import org.apache.commons.rdf.api.IRI;
 import org.apache.commons.rdf.api.Triple;
 import org.apache.commons.rdf.rdf4j.RDF4J;
-import org.apache.http.HttpStatus;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -25,13 +25,12 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class CrawlerVerticle extends AbstractVerticle {
-    private RegistrationStore store;
+    private RegistrationStore registrationStore;
+    private LinkStore linkStore;
     private static Handler<Long> action;
     private HttpClient httpClient;
     private RDF4J rdfImpl;
@@ -41,7 +40,8 @@ public class CrawlerVerticle extends AbstractVerticle {
     public void start(Future<Void> fut) {
         rdfImpl = new RDF4J();
         httpClient = vertx.createHttpClient();
-        store = new RegistrationStore();
+        registrationStore = new RegistrationStore();
+        linkStore = new LinkStore();
         action = id -> {
             crawl();
             writeTtl();
@@ -53,7 +53,7 @@ public class CrawlerVerticle extends AbstractVerticle {
     }
 
     private void crawl() {
-        Map<String, String> registrations = store.getAllRegistrations();
+        Map<String, String> registrations = registrationStore.getAllRegistrations();
 
         for (String url :registrations.keySet()) {
             System.out.println("Crawling " + url);
@@ -70,7 +70,7 @@ public class CrawlerVerticle extends AbstractVerticle {
                             return;
                         }
 
-                        // store turtle data
+                        // registrationStore turtle data
                         EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION_DATA);
                         message.setHeader(EventBusMessage.Headers.SUBSCRIPTION_URL, url);
                         message.setPayload(buffer.toString());
@@ -114,26 +114,32 @@ public class CrawlerVerticle extends AbstractVerticle {
     private Set<String> findLinks(Graph graph) {
         Set<String> result = new HashSet<>();
 
-        // look for other links
-        IRI linksIri = rdfImpl.createIRI("http://w3id.org/eve#links");
-        IRI containsIri = rdfImpl.createIRI("http://w3id.org/eve#contains");
-        Iterable<Triple> linkTriples = findTriplesByPredicate(graph, linksIri);
-        for (Triple t : linkTriples) {
-            result.add(t.getObject().toString());
+        List<Triple> resultTriples = new ArrayList<>();
+        Map<String, String> links = linkStore.getAllLinks();
+        for (String link : links.keySet()) {
+            String queryLink = link;
+            if (!(links.get(link).equals("") || links.get(link) == null)) {
+                String fullPrefix = links.get(link);
+                String nsPrefix = fullPrefix.substring(0, fullPrefix.indexOf(":"));
+                String prefix = fullPrefix.substring(fullPrefix.indexOf(":") + 1);
+                queryLink = prefix + link.substring(link.indexOf(nsPrefix) + nsPrefix.length());
+            }
+            IRI queryIRI = rdfImpl.createIRI(queryLink);
+            findTriplesByPredicate(graph, queryIRI).iterator().forEachRemaining(resultTriples::add);
         }
-        Iterable<Triple> containsTriples = findTriplesByPredicate(graph, containsIri);
-        for (Triple t : containsTriples) {
+        for (Triple t : resultTriples) {
             result.add(t.getObject().toString());
         }
         return result;
     }
 
     private Iterable<Triple> findTriplesByPredicate(Graph graph, IRI iri) {
+
         return graph.iterate(null, iri, null);
     }
 
     private void writeTtl() {
-        Map<String, String> dataMap = store.getAllRegistrations();
+        Map<String, String> dataMap = registrationStore.getAllRegistrations();
         if ( dataMap.size() > 0 ) {
             System.out.println("Writing crawler data to " + dataFileName);
             Path path = Paths.get(dataFileName);

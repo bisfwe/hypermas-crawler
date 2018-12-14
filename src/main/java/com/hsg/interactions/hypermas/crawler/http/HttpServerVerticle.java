@@ -28,19 +28,22 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.route().handler(BodyHandler.create());
 
+        // TODO move to the end to default match?
         router.get("/").handler((routingContext) -> {
             routingContext.response()
                     .setStatusCode(HttpStatus.SC_OK)
                     .end("Crawler Yggdrasil -> Corese");
         });
 
-        RegistrationHandler subHandler = new RegistrationHandler();
-        SearchEngine searchHandler = new SearchEngine();
+        HttpHandler httpHandler = new HttpHandler();
+        SearchEngine searchEngine = new SearchEngine();
 
-        router.post("/crawler/registrations").handler(subHandler::handleAddSubscription);
-        // TODO post with body or get with path parameters?
-        // atm body seems to be nicer, since sparql query encoded in path can be cumbersome
-        router.post("/searchEngine").handler(searchHandler::handleSearchQuery);
+        router.post("/crawler/registrations").handler(httpHandler::handleAddRegistration);
+        router.post("/crawler/links").handler(httpHandler::handleAddLink);
+        router.get("/crawler/links").handler(httpHandler::handleGetLinks);
+        router.delete("/crawler/links").handler(httpHandler::handleRemoveLinks);
+
+        router.post("/searchEngine").handler(searchEngine::handleSearchQuery);
 
         return router;
     }

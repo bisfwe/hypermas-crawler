@@ -8,15 +8,16 @@ import com.google.gson.Gson;
 
 public class EventBusMessage {
 
-    public static enum MessageType {
-        ADD_REGISTRATION, ADD_REGISTRATION_DATA, REMOVE_REGISTRATION
+    public enum MessageType {
+        ADD_REGISTRATION, ADD_REGISTRATION_DATA, REMOVE_REGISTRATION,
+        ADD_LINK_CRAWLER, GET_LINKS_CRAWLER, DELETE_LINK_CRAWLER,
     }
 
-    public static enum Headers {
+    public enum Headers {
         SUBSCRIPTION_URL, REPLY_STATUS
     }
 
-    public static enum ReplyStatus {
+    public enum ReplyStatus {
         SUCCEEDED, ENTITY_NOT_FOUND, FAILED
     }
 
