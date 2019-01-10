@@ -45,8 +45,8 @@ public class CrawlerVerticle extends AbstractVerticle {
         action = id -> {
             crawl();
             writeTtl();
-            System.out.println("Waiting for next crawl...");
-            vertx.setTimer(TimeUnit.SECONDS.toMillis(5), action);
+            //System.out.println("Waiting for next crawl...");
+            vertx.setTimer(TimeUnit.SECONDS.toMillis(2), action);
         };
 
         vertx.setTimer(TimeUnit.MILLISECONDS.toMillis(1), action);
@@ -69,7 +69,7 @@ public class CrawlerVerticle extends AbstractVerticle {
             public void handle(HttpClientResponse httpClientResponse) {
                 httpClientResponse.bodyHandler(buffer -> {
                     if (buffer.toString().equals("Not Found")) {
-                        System.out.println("Removing registration: " + url);
+                        //System.out.println("Removing registration: " + url);
                         EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.REMOVE_REGISTRATION);
                         message.setPayload(url);
                         vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
@@ -143,7 +143,7 @@ public class CrawlerVerticle extends AbstractVerticle {
     private void writeTtl() {
         Map<String, String> dataMap = registrationStore.getAllRegistrations();
         if ( dataMap.size() > 0 ) {
-            System.out.println("Writing crawler data to " + dataFileName);
+            //System.out.println("Writing crawler data to " + dataFileName);
             Path path = Paths.get(dataFileName);
             try (BufferedWriter writer = Files.newBufferedWriter(path))
             {
@@ -162,9 +162,9 @@ public class CrawlerVerticle extends AbstractVerticle {
     Handler<AsyncResult<Message<String>>> handleStoreReply() {
         return reply -> {
             if (reply.succeeded()) {
-                System.out.println("[Corese] Data reloaded");
+                //System.out.println("[Corese] Data reloaded");
             } else {
-                System.out.println("[Corese] Data reload failed");
+                //System.out.println("[Corese] Data reload failed");
             }
         };
     }
