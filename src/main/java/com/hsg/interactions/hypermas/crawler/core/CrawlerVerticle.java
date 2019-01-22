@@ -22,6 +22,9 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,6 +38,13 @@ public class CrawlerVerticle extends AbstractVerticle {
     private HttpClient httpClient;
     private RDF4J rdfImpl;
     private String dataFileName = "crawlerData.ttl";
+    private int crawlingInterval = 5;
+    private ArrayList<String> urlsVisited = new ArrayList<String>();
+    private boolean configuredLinksOnly = true;
+
+
+
+    // IDEA: Let consumers focus on artifacts to be notified about changes in the crawled data..
 
     @Override
     public void start(Future<Void> fut) {
@@ -46,7 +56,7 @@ public class CrawlerVerticle extends AbstractVerticle {
             crawl();
             writeTtl();
             //System.out.println("Waiting for next crawl...");
-            vertx.setTimer(TimeUnit.SECONDS.toMillis(2), action);
+            vertx.setTimer(TimeUnit.SECONDS.toMillis(crawlingInterval), action);
         };
 
         vertx.setTimer(TimeUnit.MILLISECONDS.toMillis(1), action);
@@ -54,70 +64,103 @@ public class CrawlerVerticle extends AbstractVerticle {
 
     private void crawl() {
         Map<String, String> registrations = registrationStore.getAllRegistrations();
+        Map<String, Long> lastCrawled = registrationStore.getLastCrawledInfo();
 
         for (String url :registrations.keySet()) {
-            System.out.println("Crawling " + url);
-            visiUrl(url);
+        // TODO: replace with intelligent metric to crawl fast changing areas more often -> nUpdates
+        //    if (lastCrawled.get(url) < System.currentTimeMillis() - crawlingInterval*1000) {
+                System.out.println("Crawling " + url);
+                visitUrl(url);
+         //   }
+        }
+        urlsVisited.clear();
+    }
 
+    private void visitUrl(String url) {
+        if (!urlsVisited.contains(url)) {
+            urlsVisited.add(url);
+            httpClient.getAbs(url, new Handler<HttpClientResponse>() {
+
+
+                @Override
+                public void handle(HttpClientResponse httpClientResponse) {
+                    httpClientResponse.bodyHandler(buffer -> {
+                        if (httpClientResponse.statusCode() >= 400 || buffer.toString().equals("Not Found")) {
+                            //System.out.println("Removing registration: " + url);
+                            EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.REMOVE_REGISTRATION);
+                            message.setPayload(url);
+                            vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
+                            return;
+                        }
+
+                        // registrationStore turtle data
+                        EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION_DATA);
+                        message.setHeader(EventBusMessage.Headers.SUBSCRIPTION_URL, url);
+                        message.setPayload(buffer.toString());
+                        vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
+
+                        // look for new links
+                        ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
+                        RDFFormat format = RDFFormat.TURTLE;
+                        RDFParser rdfParser = Rio.createParser(format);
+                        Model model = new LinkedHashModel();
+                        rdfParser.setRDFHandler(new StatementCollector(model));
+                        Set<String> foundLinks;
+                        try {
+                            // parse string to graph
+                            rdfParser.parse(in, "");
+                            Graph graph = rdfImpl.asGraph(model);
+                            if (configuredLinksOnly) {
+                                foundLinks = findLinks(graph);
+                            } else {
+                                foundLinks = findUris(graph);
+                            }
+
+                            for (String link : foundLinks) {
+                                visitUrl(link);
+                            }
+                        } catch (RDFParseException e) {
+                            throw new IllegalArgumentException("RDF parse error: " + e.getMessage());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        } finally {
+                            try {
+                                in.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                }
+            }).putHeader("Content-Type", "text/turtle").end();
         }
     }
 
-    private void visiUrl(String url) {
-        httpClient.getAbs(url, new Handler<HttpClientResponse>() {
+    // TODO IDEA: recognise links that return promising representations
+    private Set<String> findUris(Graph graph) {
+        Set<String> result = new HashSet<>();
 
-            @Override
-            public void handle(HttpClientResponse httpClientResponse) {
-                httpClientResponse.bodyHandler(buffer -> {
-                    if (buffer.toString().equals("Not Found")) {
-                        //System.out.println("Removing registration: " + url);
-                        EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.REMOVE_REGISTRATION);
-                        message.setPayload(url);
-                        vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
-                        return;
-                    }
+        for (Triple t : graph.iterate()) {
+            try {
+                String object = t.getObject().toString().replace("<", "").replace(">", "");
+                // check for valid uri
+                new URL(object).toURI();
+                result.add(object);
 
-                    // registrationStore turtle data
-                    EventBusMessage message = new EventBusMessage(EventBusMessage.MessageType.ADD_REGISTRATION_DATA);
-                    message.setHeader(EventBusMessage.Headers.SUBSCRIPTION_URL, url);
-                    message.setPayload(buffer.toString());
-                    vertx.eventBus().send(EventBusRegistry.REGISTRATION_STORE_ADDRESS, message.toJson());
-
-                    // look for new links
-                    ByteArrayInputStream in = new ByteArrayInputStream(buffer.toString().getBytes());
-                    RDFFormat format = RDFFormat.TURTLE;
-                    RDFParser rdfParser = Rio.createParser(format);
-                    Model model = new LinkedHashModel();
-                    rdfParser.setRDFHandler(new StatementCollector(model));
-                    try {
-                        // parse string to graph
-                        rdfParser.parse(in, "");
-                        Graph graph = rdfImpl.asGraph(model);
-
-                        Set<String> foundLinks = findLinks(graph);
-                        for (String link : foundLinks) {
-                            visiUrl(link);
-                        }
-                    } catch (RDFParseException e) {
-                        throw new IllegalArgumentException("RDF parse error: " + e.getMessage());
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    } finally {
-                        try {
-                            in.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
             }
-        }).putHeader("Content-Type", "text/turtle").end();
+        }
+        return result;
     }
 
     private Set<String> findLinks(Graph graph) {
         Set<String> result = new HashSet<>();
-
         List<Triple> resultTriples = new ArrayList<>();
         Map<String, String> links = linkStore.getAllLinks();
+
         for (String link : links.keySet()) {
             String queryLink = link;
             if (!(links.get(link).equals("") || links.get(link) == null)) {
@@ -136,7 +179,6 @@ public class CrawlerVerticle extends AbstractVerticle {
     }
 
     private Iterable<Triple> findTriplesByPredicate(Graph graph, IRI iri) {
-
         return graph.iterate(null, iri, null);
     }
 
